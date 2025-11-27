@@ -1,141 +1,224 @@
-import { useState } from 'react'
-import Navbar from './components/Navbar'
-import AuctionCard from './components/AuctionCard'
-import AuctionDetailModal from './components/AuctionDetailModal'
-import CreateAuctionForm from './components/CreateAuctionForm'
-import MyRecords from './components/MyRecords'
-import { Plus, Package } from 'lucide-react'
-import { Toaster, toast } from 'sonner'
-import { useAuctions, usePlaceBid, useCreateAuction } from './hooks/useAuction'
-import { useEffect } from 'react'
-import { useChainId } from 'wagmi'
-import deployedConfig from './config/deployed.json'
+import { useState } from "react";
+import Navbar from "./components/Navbar";
+import HomeHero from "./components/HomeHero";
+import HomeFeaturedSection from "./components/HomeFeaturedSection";
+import AuctionCard from "./components/AuctionCard";
+import AuctionDetailModal from "./components/AuctionDetailModal";
+import CreateAuctionForm from "./components/CreateAuctionForm";
+import MyRecords from "./components/MyRecords";
+import { Package } from "lucide-react";
+import { Toaster, toast } from "sonner";
+import { useAuctions, usePlaceBid, useCreateAuction } from "./hooks/useAuction";
+import { useEffect } from "react";
+import { useChainId } from "wagmi";
+import deployedConfig from "./config/deployed.json";
+import ParticleBackground from "./components/ParticleBackground";
 
 export default function App() {
-  const { auctions, isLoading, error, refresh } = useAuctions()
-  const chainId = useChainId()
-  const isMismatch = chainId && deployedConfig.chainId && chainId !== deployedConfig.chainId
-  const [selectedAuction, setSelectedAuction] = useState(null)
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [showRecords, setShowRecords] = useState(false)
-  const [filter, setFilter] = useState('all')
-  const bid = usePlaceBid()
-  const create = useCreateAuction()
+  const { auctions, error, refresh } = useAuctions();
+  const chainId = useChainId();
+  const isMismatch =
+    chainId && deployedConfig.chainId && chainId !== deployedConfig.chainId;
+  const [selectedAuction, setSelectedAuction] = useState(null);
+  const [selectedTab, setSelectedTab] = useState("home");
+  const [filter, setFilter] = useState("all");
+  const bid = usePlaceBid();
+  const create = useCreateAuction();
 
-
+  /**
+   * 处理出价
+   * @param {*} auctionId 拍卖ID
+   * @param {*} amount 出价金额
+   */
   const handlePlaceBid = async (auctionId, amount) => {
     try {
-      toast.info('交易已提交，等待确认...')
-      const receipt = await bid.placeBid(auctionId, amount)
-      if (receipt?.status === 'success' || receipt?.status === 1) {
-        toast.success('出价成功！')
-        window.dispatchEvent(new Event('tx-confirmed'))
+      toast.info("交易已提交，等待确认...");
+      const receipt = await bid.placeBid(auctionId, amount);
+      if (receipt?.status === "success" || receipt?.status === 1) {
+        toast.success("出价成功！");
+        window.dispatchEvent(new Event("tx-confirmed"));
       } else {
-        toast.warning('交易已上链但状态异常')
+        toast.warning("交易已上链但状态异常");
       }
-      setSelectedAuction(null)
-      refresh()
+      setSelectedAuction(null);
+      refresh();
     } catch (e) {
-      toast.error(e?.message || '提交出价失败')
+      toast.error(e?.message || "提交出价失败");
     }
-  }
+  };
 
+  /**
+   * 处理创建拍卖
+   * @param {*} newAuction 新拍卖信息
+   */
   const handleCreateAuction = async (newAuction) => {
     try {
-      toast.info('交易已提交，等待确认...')
+      toast.info("交易已提交，等待确认...");
       const receipt = await create.createAuction(
         newAuction.name,
         newAuction.startingPrice,
         Math.floor(newAuction.duration / 1000)
-      )
-      if (receipt?.status === 'success' || receipt?.status === 1) {
-        toast.success('拍卖创建成功！')
-        window.dispatchEvent(new Event('tx-confirmed'))
+      );
+      if (receipt?.status === "success" || receipt?.status === 1) {
+        toast.success("拍卖创建成功！");
+        window.dispatchEvent(new Event("tx-confirmed"));
       } else {
-        toast.warning('交易已上链但状态异常')
+        toast.warning("交易已上链但状态异常");
       }
-      setShowCreateForm(false)
-      refresh()
+      setSelectedTab("auctions");
+      refresh();
     } catch (e) {
-      toast.error(e?.message || '创建拍卖失败')
+      toast.error(e?.message || "创建拍卖失败");
     }
-  }
+  };
 
-  const filteredAuctions = auctions.filter((a) => (filter === 'all' ? true : a.status === filter))
+  /**
+   * 过滤
+   */
+  const filteredAuctions = auctions.filter((a) =>
+    filter === "all" ? true : a.status === filter
+  );
+
+  /**
+   * 监听交易确认事件，刷新拍卖列表
+   */
+  useEffect(() => {
+    const handler = () => refresh();
+    window.addEventListener("tx-confirmed", handler);
+    return () => window.removeEventListener("tx-confirmed", handler);
+  }, []);
 
   return (
-    <div style={{ backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
+    <div
+      style={{
+        background:
+          "radial-gradient(1200px 600px at -10% 0%, rgba(99,102,241,0.24), transparent), radial-gradient(800px 800px at 100% 0%, rgba(56,189,248,0.24), transparent), linear-gradient(180deg, #0B1220 0%, #0E1630 100%)",
+        minHeight: "100vh",
+      }}
+      className="relative overflow-hidden"
+    >
       <Toaster position="top-right" richColors />
-      <Navbar />
-      <main className="max-w-7xl mx-auto px-6 py-8">
+
+      {/* 导航栏 */}
+      <Navbar
+        selectedTab={selectedTab}
+        onSelectTab={setSelectedTab}
+        isDark={true}
+      />
+
+      {/* 背景动画 */}
+      {selectedTab !== "create" && <ParticleBackground />}
+
+      <main className="relative z-10 max-w-7xl mx-auto px-6 py-8 pt-24">
         {(error || isMismatch) && (
-          <div className="mb-4 px-4 py-3 rounded-lg" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}>
-            {isMismatch ? `当前网络(${chainId})与合约部署网络(${deployedConfig.chainId})不一致，请切换网络或更新合约地址` : error}
+          <div
+            className="mb-4 px-4 py-3 rounded-lg"
+            style={{
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              color: "#EF4444",
+            }}
+          >
+            {isMismatch
+              ? `当前网络(${chainId})与合约部署网络(${deployedConfig.chainId})不一致，请切换网络或更新合约地址`
+              : error}
           </div>
         )}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-[36px] mb-2" style={{ color: '#1F2937' }}>拍卖市场</h1>
-            <p className="text-[16px]" style={{ color: '#6B7280' }}>在 Monad 上探索和参与数字资产拍卖</p>
+
+        {/* 主内容区域 */}
+        {selectedTab === "home" && (
+          <div style={{ color: "white" }}>
+            <HomeHero onExplore={() => setSelectedTab("auctions")} />
+            <HomeFeaturedSection
+              auctions={auctions}
+              onSelectAuction={setSelectedAuction}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowRecords(true)} className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all hover:opacity-90" style={{ backgroundColor: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB' }}>
-              <Package className="size-5" />
-              <span>我的拍卖记录</span>
-            </button>
-            <button onClick={() => setShowCreateForm(true)} className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all hover:opacity-90" style={{ backgroundColor: '#6366F1', color: 'white' }}>
-              <Plus className="size-5" />
-              <span>创建拍卖</span>
-            </button>
-          </div>
-        </div>
-        <div className="flex gap-2 mb-6">
-          {[
-            { key: 'all', label: '全部' },
-            { key: 'active', label: '进行中' },
-            { key: 'ended', label: '已结束' },
-          ].map((tab) => (
-            <button key={tab.key} onClick={() => setFilter(tab.key)} className="px-6 py-2 rounded-lg transition-all" style={{ backgroundColor: filter === tab.key ? '#6366F1' : 'white', color: filter === tab.key ? 'white' : '#6B7280' }}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {filteredAuctions.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAuctions.map((auction) => (
-              <AuctionCard key={auction.id} auction={auction} onClick={() => setSelectedAuction(auction)} />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="p-6 rounded-full mb-4" style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)' }}>
-              <Package className="size-12" style={{ color: '#6366F1' }} />
+        )}
+
+        {/* 拍卖市场 */}
+        {selectedTab === "auctions" && (
+          <div style={{ color: "white" }}>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-[28px]">拍卖市场</h2>
+              </div>
             </div>
-            <h3 className="text-[20px] mb-2" style={{ color: '#1F2937' }}>暂无拍卖</h3>
-            <p className="text-[14px] mb-6" style={{ color: '#6B7280' }}>{filter === 'all' ? '还没有任何拍卖项目' : `当前没有${filter === 'active' ? '进行中' : '已结束'}的拍卖`}</p>
-            {filter === 'all' && (
-              <button onClick={() => setShowCreateForm(true)} className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all hover:opacity-90" style={{ backgroundColor: '#6366F1', color: 'white' }}>
-                <Plus className="size-5" />
-                <span>创建首个拍卖</span>
-              </button>
+            <div className="flex gap-2 mb-6">
+              {[
+                { key: "all", label: "全部" },
+                { key: "active", label: "进行中" },
+                { key: "ended", label: "已结束" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className="px-6 py-2 rounded-lg transition-all"
+                  style={{
+                    backgroundColor:
+                      filter === tab.key ? "#5B7FFF" : "rgba(255,255,255,0.06)",
+                    color: filter === tab.key ? "#FFFFFF" : "#93C5FD",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {filteredAuctions.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredAuctions.map((auction) => (
+                  <AuctionCard
+                    key={auction.id}
+                    auction={auction}
+                    onClick={() => setSelectedAuction(auction)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div
+                className="flex flex-col items-center justify-center py-20"
+                style={{ color: "white" }}
+              >
+                <div
+                  className="p-6 rounded-full mb-4"
+                  style={{ backgroundColor: "rgba(91, 127, 255, 0.15)" }}
+                >
+                  <Package className="size-12" style={{ color: "#5B7FFF" }} />
+                </div>
+                <h3 className="text-[20px] mb-2">暂无拍卖</h3>
+                <p className="text-[14px] mb-6" style={{ color: "#93C5FD" }}>
+                  {filter === "all"
+                    ? "还没有任何拍卖项目"
+                    : `当前没有${
+                        filter === "active" ? "进行中" : "已结束"
+                      }的拍卖`}
+                </p>
+              </div>
             )}
           </div>
         )}
+
+        {/* 创建拍卖 */}
+        {selectedTab === "create" && (
+          <CreateAuctionForm
+            asPage
+            onCreate={handleCreateAuction}
+            onClose={() => setSelectedTab("auctions")}
+          />
+        )}
+
+        {/* 我的记录 */}
+        {selectedTab === "records" && <MyRecords asPage />}
       </main>
-      {useEffect(() => {
-        const handler = () => refresh()
-        window.addEventListener('tx-confirmed', handler)
-        return () => window.removeEventListener('tx-confirmed', handler)
-      }, [])}
+
+      {/* 拍卖详情弹窗 */}
       {selectedAuction && (
-        <AuctionDetailModal auction={selectedAuction} onClose={() => setSelectedAuction(null)} onPlaceBid={handlePlaceBid} />
-      )}
-      {showCreateForm && (
-        <CreateAuctionForm onClose={() => setShowCreateForm(false)} onCreate={handleCreateAuction} />
-      )}
-      {showRecords && (
-        <MyRecords onClose={() => setShowRecords(false)} />
+        <AuctionDetailModal
+          auction={selectedAuction}
+          onClose={() => setSelectedAuction(null)}
+          onPlaceBid={handlePlaceBid}
+        />
       )}
     </div>
-  )
+  );
 }

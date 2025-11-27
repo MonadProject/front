@@ -3,9 +3,16 @@ import { X, Plus, AlertCircle } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
 import { useEffect } from "react";
 
-export default function CreateAuctionForm({ onClose, onCreate }) {
+export default function CreateAuctionForm({
+  onClose,
+  onCreate,
+  asPage = false,
+}) {
   const { address, isConnected } = useAccount();
-  const { data: balance, refetch } = useBalance({ address, enabled: !!address })
+  const { data: balance, refetch } = useBalance({
+    address,
+    enabled: !!address,
+  });
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -16,6 +23,10 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
   });
   const [errors, setErrors] = useState({});
 
+  /**
+   * 验证表单
+   * @returns
+   */
   const validate = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = "请输入拍卖品名称";
@@ -30,6 +41,11 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * 点击提交
+   * @param {*} e
+   * @returns
+   */
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!isConnected) {
@@ -39,13 +55,19 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
     if (validate()) onCreate(formData);
   };
 
+  /**
+   * 获取用户余额
+   */
   useEffect(() => {
-    if (!address) return
-    const handler = () => refetch?.()
-    window.addEventListener('tx-confirmed', handler)
-    return () => window.removeEventListener('tx-confirmed', handler)
-  }, [address, refetch])
+    if (!address) return;
+    const handler = () => refetch?.();
+    window.addEventListener("tx-confirmed", handler);
+    return () => window.removeEventListener("tx-confirmed", handler);
+  }, [address, refetch]);
 
+  /**
+   * 拍卖时长选项
+   */
   const durationOptions = [
     { label: "1 分钟", value: 60000 },
     { label: "5 分钟", value: 300000 },
@@ -55,52 +77,41 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
     { label: "2 小时", value: 7200000 },
     { label: "6 小时", value: 21600000 },
     { label: "12 小时", value: 43200000 },
-    { label: "24 小时", value: 86400000 },  
+    { label: "24 小时", value: 86400000 },
   ];
 
-  return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50 p-4"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-xl max-w-xl w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="sticky top-0 bg-white border-b p-6 flex items-center justify-between"
-          style={{ borderColor: "#E5E7EB" }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="p-2 rounded-lg"
-              style={{ backgroundColor: "#EEF2FF" }}
-            >
-              <Plus className="size-6" style={{ color: "#6366F1" }} />
-            </div>
-            <h2 className="text-[28px]" style={{ color: "#1F2937" }}>
-              创建拍卖
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+  if (asPage) {
+    return (
+      <div className="max-w-xl mx-auto p-6" style={{ color: "white" }}>
+        <div className="flex items-center gap-3 mb-4">
+          <div
+            className="p-2 rounded-lg"
+            style={{ backgroundColor: "rgba(91, 127, 255, 0.15)" }}
           >
-            <X className="size-6" style={{ color: "#6B7280" }} />
-          </button>
+            <Plus className="size-6" style={{ color: "#5B7FFF" }} />
+          </div>
+          <h2 className="text-[28px]">创建拍卖</h2>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {isConnected && balance?.formatted && (
-            <div className="flex items-center gap-2 p-3 rounded-lg" style={{ backgroundColor: '#F9FAFB', color: '#374151', border: '1px solid #E5E7EB' }}>
+            <div
+              className="flex items-center gap-2 p-3 rounded-lg"
+              style={{
+                backgroundColor: "rgba(91, 127, 255, 0.12)",
+                color: "#93C5FD",
+                border: "1px solid rgba(91,127,255,0.25)",
+              }}
+            >
               <span>当前余额:</span>
-              <span className="font-mono">{Number(balance.formatted).toFixed(4)} {balance.symbol}</span>
+              <span className="font-mono">
+                {Number(balance.formatted).toFixed(4)} {balance.symbol}
+              </span>
             </div>
           )}
           <div>
             <label
               className="block text-[14px] mb-2"
-              style={{ color: "#374151" }}
+              style={{ color: "#FFFFFF" }}
             >
               拍卖品名称 <span style={{ color: "#EF4444" }}>*</span>
             </label>
@@ -113,8 +124,10 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
               }}
               className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none"
               style={{
-                borderColor: errors.name ? "#EF4444" : "#D1D5DB",
+                borderColor: errors.name ? "#EF4444" : "rgba(255,255,255,0.18)",
                 borderWidth: errors.name ? "2px" : "1px",
+                backgroundColor: "rgba(255,255,255,0.06)",
+                color: "#FFFFFF",
               }}
               placeholder="例如：稀有 NFT 艺术品"
             />
@@ -131,7 +144,7 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
           <div>
             <label
               className="block text-[14px] mb-2"
-              style={{ color: "#374151" }}
+              style={{ color: "#FFFFFF" }}
             >
               拍卖品描述 <span style={{ color: "#EF4444" }}>*</span>
             </label>
@@ -143,8 +156,12 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
               }}
               className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none resize-none"
               style={{
-                borderColor: errors.description ? "#EF4444" : "#D1D5DB",
+                borderColor: errors.description
+                  ? "#EF4444"
+                  : "rgba(255,255,255,0.18)",
                 borderWidth: errors.description ? "2px" : "1px",
+                backgroundColor: "rgba(255,255,255,0.06)",
+                color: "#FFFFFF",
               }}
               placeholder="详细描述您的拍卖品..."
               rows={3}
@@ -163,7 +180,7 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
             <div>
               <label
                 className="block text-[14px] mb-2"
-                style={{ color: "#374151" }}
+                style={{ color: "#FFFFFF" }}
               >
                 起拍价 (MON) <span style={{ color: "#EF4444" }}>*</span>
               </label>
@@ -179,8 +196,12 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
                 }}
                 className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none"
                 style={{
-                  borderColor: errors.startingPrice ? "#EF4444" : "#D1D5DB",
+                  borderColor: errors.startingPrice
+                    ? "#EF4444"
+                    : "rgba(255,255,255,0.18)",
                   borderWidth: errors.startingPrice ? "2px" : "1px",
+                  backgroundColor: "rgba(255,255,255,0.06)",
+                  color: "#FFFFFF",
                 }}
                 placeholder="0.001"
                 min="0.001"
@@ -199,7 +220,7 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
             <div>
               <label
                 className="block text-[14px] mb-2"
-                style={{ color: "#374151" }}
+                style={{ color: "#FFFFFF" }}
               >
                 最低加价 (MON) <span style={{ color: "#EF4444" }}>*</span>
               </label>
@@ -215,8 +236,12 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
                 }}
                 className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none"
                 style={{
-                  borderColor: errors.minBidIncrement ? "#EF4444" : "#D1D5DB",
+                  borderColor: errors.minBidIncrement
+                    ? "#EF4444"
+                    : "rgba(255,255,255,0.18)",
                   borderWidth: errors.minBidIncrement ? "2px" : "1px",
+                  backgroundColor: "rgba(255,255,255,0.06)",
+                  color: "#FFFFFF",
                 }}
                 placeholder="1"
                 min="0"
@@ -236,7 +261,7 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
           <div>
             <label
               className="block text-[14px] mb-2"
-              style={{ color: "#374151" }}
+              style={{ color: "#FFFFFF" }}
             >
               拍卖时长 <span style={{ color: "#EF4444" }}>*</span>
             </label>
@@ -250,16 +275,284 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
                   }
                   className="px-4 py-3 rounded-lg border-2 transition-all"
                   style={{
-                    borderColor:
-                      formData.duration === option.value
-                        ? "#6366F1"
-                        : "#E5E7EB",
+                    borderColor: "rgba(255,255,255,0.12)",
                     backgroundColor:
-                      formData.duration === option.value ? "#EEF2FF" : "white",
+                      formData.duration === option.value
+                        ? "#5B7FFF"
+                        : "rgba(255,255,255,0.06)",
                     color:
                       formData.duration === option.value
-                        ? "#6366F1"
-                        : "#6B7280",
+                        ? "#FFFFFF"
+                        : "#93C5FD",
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div
+            className="flex items-start gap-4 p-4 rounded-lg"
+            style={{
+              backgroundColor: "rgba(91, 127, 255, 0.12)",
+              border: "1px solid rgba(91,127,255,0.25)",
+            }}
+          >
+            <input
+              type="checkbox"
+              id="antiSnipe"
+              checked={formData.isAntiSnipe}
+              onChange={(e) =>
+                setFormData({ ...formData, isAntiSnipe: e.target.checked })
+              }
+              className="mt-1"
+            />
+            <div>
+              <label
+                htmlFor="antiSnipe"
+                className="block text-[14px] cursor-pointer"
+                style={{ color: "#FFFFFF" }}
+              >
+                启用防狙击机制
+              </label>
+              <p className="text-[12px] mt-1" style={{ color: "#93C5FD" }}>
+                在最后 1 分钟内的出价将自动延长拍卖时间
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg transition-all hover:bg-white/10"
+              style={{ color: "rgba(255,255,255,0.7)" }}
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-lg transition-all hover:opacity-90"
+              style={{ backgroundColor: "#5B7FFF", color: "white" }}
+            >
+              创建
+            </button>
+          </div>
+          {!isConnected && (
+            <div
+              className="flex items-center gap-2 p-3 rounded-lg text-[13px]"
+              style={{
+                backgroundColor: "rgba(245, 158, 11, 0.18)",
+                color: "#FBBF24",
+              }}
+            >
+              <AlertCircle className="size-4" />
+              <span>请先连接钱包以创建拍卖</span>
+            </div>
+          )}
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center z-50 p-4"
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl max-w-xl w-full max-h-[90vh] overflow-y-auto"
+        style={{
+          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          border: "1px solid rgba(255,255,255,0.12)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="sticky top-0 p-6 flex items-center justify-between"
+          style={{
+            background: "rgba(10, 16, 30, 0.6)",
+            backdropFilter: "blur(12px)",
+            borderBottom: "1px solid rgba(255,255,255,0.12)",
+            color: "#FFFFFF",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: "rgba(91, 127, 255, 0.15)" }}
+            >
+              <Plus className="size-6" style={{ color: "#5B7FFF" }} />
+            </div>
+            <h2 className="text-[28px]">创建拍卖</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <X className="size-6" style={{ color: "rgba(255,255,255,0.7)" }} />
+          </button>
+        </div>
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 space-y-5"
+          style={{ color: "#FFFFFF" }}
+        >
+          {isConnected && balance?.formatted && (
+            <div
+              className="flex items-center gap-2 p-3 rounded-lg"
+              style={{
+                backgroundColor: "rgba(91, 127, 255, 0.12)",
+                color: "#93C5FD",
+                border: "1px solid rgba(91,127,255,0.25)",
+              }}
+            >
+              <span>当前余额:</span>
+              <span className="font-mono">
+                {Number(balance.formatted).toFixed(4)} {balance.symbol}
+              </span>
+            </div>
+          )}
+          <div>
+            <label
+              className="block text-[14px] mb-2"
+              style={{ color: "#FFFFFF" }}
+            >
+              拍卖品名称 <span style={{ color: "#EF4444" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => {
+                setFormData({ ...formData, name: e.target.value });
+                setErrors({ ...errors, name: undefined });
+              }}
+              className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none"
+              style={{
+                borderColor: errors.name ? "#EF4444" : "rgba(255,255,255,0.18)",
+                borderWidth: errors.name ? "2px" : "1px",
+                backgroundColor: "rgba(255,255,255,0.06)",
+                color: "#FFFFFF",
+              }}
+              placeholder="例如：稀有 NFT 艺术品"
+            />
+          </div>
+          <div>
+            <label
+              className="block text-[14px] mb-2"
+              style={{ color: "#FFFFFF" }}
+            >
+              拍卖品描述 <span style={{ color: "#EF4444" }}>*</span>
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => {
+                setFormData({ ...formData, description: e.target.value });
+                setErrors({ ...errors, description: undefined });
+              }}
+              className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none resize-none"
+              style={{
+                borderColor: errors.description
+                  ? "#EF4444"
+                  : "rgba(255,255,255,0.18)",
+                borderWidth: errors.description ? "2px" : "1px",
+                backgroundColor: "rgba(255,255,255,0.06)",
+                color: "#FFFFFF",
+              }}
+              placeholder="详细描述您的拍卖品..."
+              rows={3}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label
+                className="block text-[14px] mb-2"
+                style={{ color: "#FFFFFF" }}
+              >
+                起拍价 (MON) <span style={{ color: "#EF4444" }}>*</span>
+              </label>
+              <input
+                type="number"
+                value={formData.startingPrice}
+                onChange={(e) => {
+                  setFormData({
+                    ...formData,
+                    startingPrice: Number(e.target.value),
+                  });
+                  setErrors({ ...errors, startingPrice: undefined });
+                }}
+                className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none"
+                style={{
+                  borderColor: errors.startingPrice
+                    ? "#EF4444"
+                    : "rgba(255,255,255,0.18)",
+                  borderWidth: errors.startingPrice ? "2px" : "1px",
+                  backgroundColor: "rgba(255,255,255,0.06)",
+                  color: "#FFFFFF",
+                }}
+                placeholder="0.001"
+                min="0.001"
+                step="0.001"
+              />
+            </div>
+            <div>
+              <label
+                className="block text-[14px] mb-2"
+                style={{ color: "#FFFFFF" }}
+              >
+                最低加价 (MON) <span style={{ color: "#EF4444" }}>*</span>
+              </label>
+              <input
+                type="number"
+                value={formData.minBidIncrement}
+                onChange={(e) => {
+                  setFormData({
+                    ...formData,
+                    minBidIncrement: Number(e.target.value),
+                  });
+                  setErrors({ ...errors, minBidIncrement: undefined });
+                }}
+                className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none"
+                style={{
+                  borderColor: errors.minBidIncrement
+                    ? "#EF4444"
+                    : "rgba(255,255,255,0.18)",
+                  borderWidth: errors.minBidIncrement ? "2px" : "1px",
+                  backgroundColor: "rgba(255,255,255,0.06)",
+                  color: "#FFFFFF",
+                }}
+                placeholder="1"
+                min="0"
+                step="0.001"
+              />
+            </div>
+          </div>
+          <div>
+            <label
+              className="block text-[14px] mb-2"
+              style={{ color: "#FFFFFF" }}
+            >
+              拍卖时长 <span style={{ color: "#EF4444" }}>*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {durationOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, duration: option.value })
+                  }
+                  className="px-4 py-3 rounded-lg border-2 transition-all"
+                  style={{
+                    borderColor: "rgba(255,255,255,0.12)",
+                    backgroundColor:
+                      formData.duration === option.value
+                        ? "#5B7FFF"
+                        : "rgba(255,255,255,0.06)",
+                    color:
+                      formData.duration === option.value
+                        ? "#FFFFFF"
+                        : "#93C5FD",
                   }}
                 >
                   {option.label}
@@ -293,19 +586,29 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
               </p>
             </div>
           </div>
-          <button
-            type="submit"
-            className="w-full py-4 rounded-lg transition-all hover:opacity-90"
-            style={{ backgroundColor: "#6366F1", color: "white" }}
-          >
-            创建拍卖
-          </button>
+          <div className="flex items-center gap-3 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg transition-all hover:bg-white/10"
+              style={{ color: "rgba(255,255,255,0.7)" }}
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-lg transition-all hover:opacity-90"
+              style={{ backgroundColor: "#5B7FFF", color: "white" }}
+            >
+              创建
+            </button>
+          </div>
           {!isConnected && (
             <div
               className="flex items-center gap-2 p-3 rounded-lg text-[13px]"
               style={{
-                backgroundColor: "rgba(245, 158, 11, 0.1)",
-                color: "#F59E0B",
+                backgroundColor: "rgba(245, 158, 11, 0.18)",
+                color: "#FBBF24",
               }}
             >
               <AlertCircle className="size-4" />
