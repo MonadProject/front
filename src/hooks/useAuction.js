@@ -1,13 +1,39 @@
 import {
   useReadContract,
   useWriteContract,
-  useWaitForTransactionReceipt,
   usePublicClient,
   useChainId,
+  useWatchContractEvent,
+  useAccount,
 } from "wagmi";
-import { parseEther, formatEther } from "viem";
+import { parseEther, formatEther, parseAbiItem } from "viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../config/contract";
 import { useEffect, useState } from "react";
+
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+const waitForConfirmations = async (publicClient, hash, minConf) => {
+  let receipt = null;
+  while (!receipt) {
+    try {
+      receipt = await publicClient.getTransactionReceipt({ hash });
+    } catch (_) {}
+    if (!receipt) await delay(1500);
+  }
+  if (minConf > 0 && receipt.blockNumber) {
+    let confirmed = false;
+    const start = Date.now();
+    while (!confirmed) {
+      const head = await publicClient.getBlockNumber();
+      const confs = Number(head) - Number(receipt.blockNumber);
+      if (confs >= minConf) confirmed = true;
+      else {
+        if (Date.now() - start > 60000) break;
+        await delay(1500);
+      }
+    }
+  }
+  return receipt;
+};
 
 export function useGetAuction(auctionId) {
   return useReadContract({
@@ -15,8 +41,7 @@ export function useGetAuction(auctionId) {
     abi: CONTRACT_ABI,
     functionName: "getAuction",
     args: [BigInt(auctionId)],
-    watch: true,
-    pollingInterval: 3000,
+    watch: false,
   });
 }
 
@@ -25,14 +50,13 @@ export function useAuctionCount() {
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI,
     functionName: "auctionCount",
-    watch: true,
+    watch: false,
   });
 }
 
 export function useAuctions() {
   const client = usePublicClient();
   const chainId = useChainId();
-  const { data: countData } = useAuctionCount();
   const [auctions, setAuctions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,7 +65,12 @@ export function useAuctions() {
     try {
       setIsLoading(true);
       setError("");
-      const count = countData ? Number(countData) : 0;
+      const latestCount = await client.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "auctionCount",
+      });
+      const count = Number(latestCount || 0n);
       if (!count) {
         setAuctions([]);
         setIsLoading(false);
@@ -57,6 +86,25 @@ export function useAuctions() {
         })
       );
       const results = await Promise.all(reads);
+      const bidEvent = parseAbiItem(
+        "event BidPlaced(uint256 indexed auctionId, address bidder, uint256 amount)"
+      );
+      const bidsCounts = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const logs = await client.getLogs({
+              address: CONTRACT_ADDRESS,
+              event: bidEvent,
+              args: { auctionId: BigInt(id) },
+              fromBlock: 0n,
+              toBlock: "latest",
+            });
+            return logs.length;
+          } catch (_) {
+            return 0;
+          }
+        })
+      );
       const nowMs = Date.now();
       const mapped = results.map((r, idx) => {
         const [
@@ -67,6 +115,7 @@ export function useAuctions() {
           endTimeSec,
           ended,
           itemName,
+          claimed,
         ] = r;
         const currentWei = highestBidWei === 0n ? startPriceWei : highestBidWei;
         const currentPrice = Number(formatEther(currentWei));
@@ -79,13 +128,15 @@ export function useAuctions() {
           description: "",
           startingPrice,
           currentPrice,
-          minBidIncrement: 1,
+          minBidIncrement: 0.00001,
           endTime: endMs,
           status,
           isAntiSnipe: true,
-          bids: 0,
+          bids: bidsCounts[idx] || 0,
           seller,
           highestBidder,
+          claimed,
+          endedFlag: ended,
         };
       });
       setAuctions(mapped);
@@ -99,58 +150,102 @@ export function useAuctions() {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countData, chainId]);
+  }, [chainId]);
+
+  // useWatchContractEvent({
+  //   address: CONTRACT_ADDRESS,
+  //   abi: CONTRACT_ABI,
+  //   eventName: "AuctionCreated",
+  //   onLogs: () => refresh(),
+  // });
+  // useWatchContractEvent({
+  //   address: CONTRACT_ADDRESS,
+  //   abi: CONTRACT_ABI,
+  //   eventName: "BidPlaced",
+  //   onLogs: () => refresh(),
+  // });
+  // useWatchContractEvent({
+  //   address: CONTRACT_ADDRESS,
+  //   abi: CONTRACT_ABI,
+  //   eventName: "AuctionEnded",
+  //   onLogs: () => refresh(),
+  // });
+  // useWatchContractEvent({
+  //   address: CONTRACT_ADDRESS,
+  //   abi: CONTRACT_ABI,
+  //   eventName: "TimeExtended",
+  //   onLogs: () => refresh(),
+  // });
 
   return { auctions, isLoading, error, refresh };
 }
 
 export function usePlaceBid() {
-  const { data: hash, writeContract, isPending } = useWriteContract();
+  const { writeContractAsync, isPending } = useWriteContract();
+  const publicClient = usePublicClient();
+  const { address } = useAccount();
   const chainId = useChainId();
   const placeBid = async (auctionId, bidAmount) => {
-    return writeContract({
+    try {
+      await publicClient.simulateContract({
+        account: address,
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "placeBid",
+        args: [BigInt(auctionId)],
+        value: parseEther(bidAmount.toString()),
+      });
+    } catch (e) {
+      throw new Error(e?.shortMessage || e?.message || "出价模拟失败");
+    }
+    const hash = await writeContractAsync({
       address: CONTRACT_ADDRESS,
       abi: CONTRACT_ABI,
       functionName: "placeBid",
       args: [BigInt(auctionId)],
       value: parseEther(bidAmount.toString()),
     });
+    const minConf = chainId === 31337 ? 0 : 2;
+    const receipt = await waitForConfirmations(publicClient, hash, minConf);
+    return receipt;
   };
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
-  return { placeBid, isPending, isConfirming, isSuccess, hash };
+  return { placeBid, isPending };
 }
 
 export function useCreateAuction() {
-  const { data: hash, writeContract, isPending } = useWriteContract();
+  const { writeContractAsync, isPending } = useWriteContract();
+  const publicClient = usePublicClient();
   const chainId = useChainId();
   const createAuction = async (itemName, startPrice, duration) => {
-    return writeContract({
+    const hash = await writeContractAsync({
       address: CONTRACT_ADDRESS,
       abi: CONTRACT_ABI,
       functionName: "createAuction",
       args: [itemName, parseEther(startPrice.toString()), BigInt(duration)],
     });
+    const minConf = chainId === 31337 ? 0 : 2;
+    const receipt = await waitForConfirmations(publicClient, hash, minConf);
+    return receipt;
   };
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
-  return { createAuction, isPending, isConfirming, isSuccess, hash };
+  return { createAuction, isPending };
 }
 
 export function useEndAuction() {
-  const { data: hash, writeContract, isPending } = useWriteContract();
+  const { writeContractAsync, isPending } = useWriteContract();
+  const publicClient = usePublicClient();
+  const chainId = useChainId();
   const endAuction = async (auctionId) => {
-    return writeContract({
+    const hash = await writeContractAsync({
       address: CONTRACT_ADDRESS,
       abi: CONTRACT_ABI,
       functionName: "endAuction",
       args: [BigInt(auctionId)],
     });
+    const minConf = chainId === 31337 ? 0 : 2;
+    const receipt = await waitForConfirmations(publicClient, hash, minConf);
+    return receipt;
   };
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
-  return { endAuction, isPending, isConfirming, isSuccess, hash };
+  return { endAuction, isPending };
 }
+
+// 方案一：移除手动提取资金逻辑，结算在 endAuction 中自动完成

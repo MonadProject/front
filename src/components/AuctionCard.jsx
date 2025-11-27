@@ -3,6 +3,12 @@ import { useEffect, useState } from 'react'
 
 export default function AuctionCard({ auction, onClick }) {
   const [timeLeft, setTimeLeft] = useState('')
+  const short = (addr) => {
+    if (!addr || typeof addr !== 'string') return '-'
+    const lower = addr.toLowerCase()
+    if (lower === '0x0000000000000000000000000000000000000000') return '暂无'
+    return addr.slice(0, 6) + '...' + addr.slice(-4)
+  }
   useEffect(() => {
     const updateTime = () => {
       const now = Date.now()
@@ -58,6 +64,10 @@ export default function AuctionCard({ auction, onClick }) {
         <div className="text-right">
           <div className="text-[12px] mb-1" style={{ color: '#9CA3AF' }}>{auction.bids} 次出价</div>
         </div>
+      </div>
+      <div className="mt-2 grid grid-cols-1 gap-1 text-[12px]" style={{ color: '#6B7280' }}>
+        <div>卖家: <span className="font-mono">{short(auction.seller)}</span></div>
+        <div>最新出价者: <span className="font-mono">{short(auction.highestBidder)}</span></div>
       </div>
       <div className="flex items-center gap-2 pt-4 border-t text-[14px]" style={{ borderColor: '#E5E7EB', color: isUrgent ? '#F59E0B' : '#6B7280' }}>
         <Clock className="size-4" />

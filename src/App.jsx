@@ -1,40 +1,40 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Navbar from './components/Navbar'
 import AuctionCard from './components/AuctionCard'
 import AuctionDetailModal from './components/AuctionDetailModal'
 import CreateAuctionForm from './components/CreateAuctionForm'
+import MyRecords from './components/MyRecords'
 import { Plus, Package } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import { useAuctions, usePlaceBid, useCreateAuction } from './hooks/useAuction'
+import { useEffect } from 'react'
+import { useChainId } from 'wagmi'
+import deployedConfig from './config/deployed.json'
 
 export default function App() {
   const { auctions, isLoading, error, refresh } = useAuctions()
+  const chainId = useChainId()
+  const isMismatch = chainId && deployedConfig.chainId && chainId !== deployedConfig.chainId
   const [selectedAuction, setSelectedAuction] = useState(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showRecords, setShowRecords] = useState(false)
   const [filter, setFilter] = useState('all')
   const bid = usePlaceBid()
   const create = useCreateAuction()
 
-  useEffect(() => {
-    if (bid.isSuccess) {
-      toast.success('出价成功！')
-      setSelectedAuction(null)
-      refresh()
-    }
-  }, [bid.isSuccess])
-
-  useEffect(() => {
-    if (create.isSuccess) {
-      toast.success('拍卖创建成功！')
-      setShowCreateForm(false)
-      refresh()
-    }
-  }, [create.isSuccess])
 
   const handlePlaceBid = async (auctionId, amount) => {
     try {
-      await bid.placeBid(auctionId, amount)
       toast.info('交易已提交，等待确认...')
+      const receipt = await bid.placeBid(auctionId, amount)
+      if (receipt?.status === 'success' || receipt?.status === 1) {
+        toast.success('出价成功！')
+        window.dispatchEvent(new Event('tx-confirmed'))
+      } else {
+        toast.warning('交易已上链但状态异常')
+      }
+      setSelectedAuction(null)
+      refresh()
     } catch (e) {
       toast.error(e?.message || '提交出价失败')
     }
@@ -42,8 +42,20 @@ export default function App() {
 
   const handleCreateAuction = async (newAuction) => {
     try {
-      await create.createAuction(newAuction.name, newAuction.startingPrice, Math.floor(newAuction.duration / 1000))
       toast.info('交易已提交，等待确认...')
+      const receipt = await create.createAuction(
+        newAuction.name,
+        newAuction.startingPrice,
+        Math.floor(newAuction.duration / 1000)
+      )
+      if (receipt?.status === 'success' || receipt?.status === 1) {
+        toast.success('拍卖创建成功！')
+        window.dispatchEvent(new Event('tx-confirmed'))
+      } else {
+        toast.warning('交易已上链但状态异常')
+      }
+      setShowCreateForm(false)
+      refresh()
     } catch (e) {
       toast.error(e?.message || '创建拍卖失败')
     }
@@ -56,15 +68,26 @@ export default function App() {
       <Toaster position="top-right" richColors />
       <Navbar />
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {(error || isMismatch) && (
+          <div className="mb-4 px-4 py-3 rounded-lg" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}>
+            {isMismatch ? `当前网络(${chainId})与合约部署网络(${deployedConfig.chainId})不一致，请切换网络或更新合约地址` : error}
+          </div>
+        )}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-[36px] mb-2" style={{ color: '#1F2937' }}>拍卖市场</h1>
             <p className="text-[16px]" style={{ color: '#6B7280' }}>在 Monad 上探索和参与数字资产拍卖</p>
           </div>
-          <button onClick={() => setShowCreateForm(true)} className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all hover:opacity-90" style={{ backgroundColor: '#6366F1', color: 'white' }}>
-            <Plus className="size-5" />
-            <span>创建拍卖</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowRecords(true)} className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all hover:opacity-90" style={{ backgroundColor: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB' }}>
+              <Package className="size-5" />
+              <span>我的拍卖记录</span>
+            </button>
+            <button onClick={() => setShowCreateForm(true)} className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all hover:opacity-90" style={{ backgroundColor: '#6366F1', color: 'white' }}>
+              <Plus className="size-5" />
+              <span>创建拍卖</span>
+            </button>
+          </div>
         </div>
         <div className="flex gap-2 mb-6">
           {[
@@ -99,11 +122,19 @@ export default function App() {
           </div>
         )}
       </main>
+      {useEffect(() => {
+        const handler = () => refresh()
+        window.addEventListener('tx-confirmed', handler)
+        return () => window.removeEventListener('tx-confirmed', handler)
+      }, [])}
       {selectedAuction && (
         <AuctionDetailModal auction={selectedAuction} onClose={() => setSelectedAuction(null)} onPlaceBid={handlePlaceBid} />
       )}
       {showCreateForm && (
         <CreateAuctionForm onClose={() => setShowCreateForm(false)} onCreate={handleCreateAuction} />
+      )}
+      {showRecords && (
+        <MyRecords onClose={() => setShowRecords(false)} />
       )}
     </div>
   )

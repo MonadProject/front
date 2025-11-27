@@ -1,9 +1,13 @@
 import { X, Clock, TrendingUp, Flame, AlertCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, useBalance } from 'wagmi'
+import { useEndAuction } from '../hooks/useAuction'
+import { parseEther } from 'viem'
 
 export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
-  const { isConnected } = useAccount()
+  const { address, isConnected } = useAccount()
+  const { endAuction } = useEndAuction()
+  const { data: balance, refetch: refetchBalance } = useBalance({ address, enabled: !!address })
   const [bidAmount, setBidAmount] = useState(auction.currentPrice + auction.minBidIncrement)
   const [timeLeft, setTimeLeft] = useState('')
   const [error, setError] = useState('')
@@ -26,18 +30,29 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
     return () => clearInterval(interval)
   }, [auction.endTime])
 
-  const handleBid = (increment) => {
+  const handleBid = async (increment) => {
     if (!isConnected) {
       setError('请先连接钱包')
       return
     }
+    if (address && String(address).toLowerCase() === String(auction.seller).toLowerCase()) {
+      setError('卖家不能出价')
+      return
+    }
     const amount = increment ? auction.currentPrice + increment : bidAmount
-    if (amount < auction.currentPrice + auction.minBidIncrement) {
+    const amountWei = parseEther(amount.toString())
+    const minWei = parseEther((auction.currentPrice + auction.minBidIncrement).toString())
+    if (amountWei < minWei) {
       setError(`出价必须至少为 ${auction.currentPrice + auction.minBidIncrement} MON`)
       return
     }
     setError('')
-    onPlaceBid(auction.id, amount)
+    try {
+      await onPlaceBid(auction.id, amount)
+      await refetchBalance?.()
+    } catch (e) {
+      setError(e?.message || '提交出价失败')
+    }
   }
 
   const quickBidAmounts = [auction.minBidIncrement, auction.minBidIncrement * 2, auction.minBidIncrement * 5]
@@ -88,9 +103,14 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
             <div className="mb-4">
               <div className="text-[12px] mb-2" style={{ color: '#6B7280' }}>最低加价: {auction.minBidIncrement} MON</div>
               <div className="flex gap-2">
-                <input type="number" value={bidAmount} onChange={(e) => { setBidAmount(Number(e.target.value)); setError('') }} className="flex-1 px-4 py-3 rounded-lg border-2 focus:outline-none transition-colors" style={{ borderColor: error ? '#EF4444' : '#D1D5DB', backgroundColor: 'white' }} placeholder="输入出价金额" min={auction.currentPrice + auction.minBidIncrement} step={auction.minBidIncrement} />
+                <input type="number" value={bidAmount} onChange={(e) => { setBidAmount(Number(e.target.value)); setError('') }} className="flex-1 px-4 py-3 rounded-lg border-2 focus:outline-none transition-colors" style={{ borderColor: error ? '#EF4444' : '#D1D5DB', backgroundColor: 'white' }} placeholder="输入出价金额，例如 0.05" min={0} step="any" />
                 <button onClick={() => handleBid()} disabled={auction.status !== 'active'} className="px-6 py-3 rounded-lg transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{ backgroundColor: '#6366F1', color: 'white' }}>确认出价</button>
               </div>
+              {isConnected && balance?.formatted && (
+                <div className="mt-2 text-[12px]" style={{ color: '#6B7280' }}>
+                  可用余额: {Number(balance.formatted).toFixed(4)} {balance.symbol}
+                </div>
+              )}
               {error && (
                 <div className="flex items-center gap-2 mt-2 text-[12px]" style={{ color: '#EF4444' }}>
                   <AlertCircle className="size-4" />
@@ -108,6 +128,9 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
             <div className="flex items-center justify-between"><span>拍卖ID:</span><span className="font-mono">{auction.id}</span></div>
             <div className="flex items-center justify-between"><span>出价次数:</span><span>{auction.bids} 次</span></div>
             <div className="flex items-center justify-between"><span>状态:</span><span className={auction.status === 'active' ? 'text-[#10B981]' : 'text-[#6B7280]'}>{auction.status === 'active' ? '进行中' : auction.status === 'ended' ? '已结束' : '即将开始'}</span></div>
+            {auction.status === 'ended' && !auction.endedFlag && (
+              <button onClick={async () => { try { await endAuction(auction.id); window.dispatchEvent(new Event('tx-confirmed')); onClose() } catch (e) { setError(e?.message || '结束拍卖失败') } }} className="w-full mt-2 px-4 py-2 rounded-lg transition-all hover:opacity-90" style={{ backgroundColor: '#F59E0B', color: 'white' }}>结束拍卖</button>
+            )}
           </div>
         </div>
       </div>

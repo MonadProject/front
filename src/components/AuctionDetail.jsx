@@ -5,6 +5,12 @@ export default function AuctionDetail({ item, onClose }) {
   const { address } = useAccount()
   const [bidAmount, setBidAmount] = useState('')
   const [timeLeft, setTimeLeft] = useState(item?.endsInSec || 0)
+  const short = (addr) => {
+    if (!addr || typeof addr !== 'string') return '-'
+    const lower = addr.toLowerCase()
+    if (lower === '0x0000000000000000000000000000000000000000') return '暂无'
+    return addr.slice(0, 6) + '...' + addr.slice(-4)
+  }
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((t) => (t > 0 ? t - 1 : 0))
@@ -56,12 +62,14 @@ export default function AuctionDetail({ item, onClose }) {
                 <button onClick={() => addQuick(10)} className="px-4 py-2 rounded-lg border border-primary text-primary">+10 MON</button>
                 <button onClick={() => addQuick(25)} className="px-4 py-2 rounded-lg border border-primary text-primary">+25 MON</button>
               </div>
-              <div className="text-xs text-gray-600 mt-2">最后 5 分钟出价将自动延长拍卖时间</div>
+              <div className="text-xs text-gray-600 mt-2">最后 1 分钟出价将自动延长拍卖时间</div>
             </div>
             <div className="text-sm text-gray-600 space-y-1">
               <p>拍卖 ID: auction-{item.id}</p>
               <p>出价次数: {item.bids}</p>
               <p>状态: {item.status}</p>
+              <p>卖家: <span className="font-mono">{short(item?.seller)}</span></p>
+              <p>最新出价者: <span className="font-mono">{short(item?.highestBidder)}</span></p>
             </div>
           </div>
         </div>

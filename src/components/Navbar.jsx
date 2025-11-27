@@ -1,13 +1,21 @@
 import { Zap } from 'lucide-react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useBalance, useSwitchChain, useChainId } from 'wagmi'
+import { useEffect } from 'react'
 import { monadTestnet } from '../config/wagmi'
 
 export default function Navbar() {
   const { address, isConnected } = useAccount()
-  const { data: balance } = useBalance({ address, enabled: !!address, watch: true })
+  const { data: balance, refetch } = useBalance({ address, enabled: !!address })
   const chainId = useChainId()
   const { switchChain, isPending } = useSwitchChain()
+  
+  useEffect(() => {
+    if (!address) return
+    const handler = () => refetch?.()
+    window.addEventListener('tx-confirmed', handler)
+    return () => window.removeEventListener('tx-confirmed', handler)
+  }, [address, refetch])
 
   const handleSwitchMonad = async () => {
     try {
@@ -48,16 +56,6 @@ export default function Navbar() {
             <div className="px-3 py-1 rounded-lg text-sm" style={{ backgroundColor: '#F9FAFB', color: '#374151', border: '1px solid #E5E7EB' }}>
               余额: {Number(balance.formatted).toFixed(4)} {balance.symbol}
             </div>
-          )}
-          {chainId !== monadTestnet.id && (
-            <button
-              onClick={handleSwitchMonad}
-              disabled={isPending}
-              className="px-3 py-2 rounded-lg border transition-colors hover:bg-gray-50"
-              style={{ borderColor: '#E5E7EB', color: '#374151' }}
-            >
-              切换到 Monad Testnet
-            </button>
           )}
           <ConnectButton
             chainStatus="icon"
