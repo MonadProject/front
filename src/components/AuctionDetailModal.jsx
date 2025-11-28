@@ -166,7 +166,7 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
                   防狙击机制
                 </div>
                 <div className="text-[13px]" style={{ color: "#93C5FD" }}>
-                  如果在拍卖结束前5分钟内有新的出价，拍卖时间将自动延长5分钟。这可以防止最后时刻的狙击行为，确保所有参与者都有公平的机会。
+                  如果在拍卖结束前1分钟内有新的出价，拍卖时间将自动延长1分钟。这可以防止最后时刻的狙击行为，确保所有参与者都有公平的机会。
                 </div>
               </div>
             </div>
