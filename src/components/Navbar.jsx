@@ -48,7 +48,7 @@ export default function Navbar({ selectedTab, onSelectTab, isDark = false }) {
               AUCTION HOUSE
             </span>
           </div>
-          ConnectButton
+
           {/* Center Tabs */}
           <div className="flex-1 flex items-center justify-center gap-4">
             {[
