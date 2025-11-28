@@ -1,37 +1,17 @@
-import { Clock, Flame, Sparkles, Loader2, X, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { Clock, Flame, Sparkles, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { short } from "../utils";
 import { useX402API } from "../hooks/useX402API";
 import { X402_CONFIG } from "../config/x402";
+import { useCountdown } from "../hooks/useCountdown";
+import AnalysisModal from "./AnalysisModal";
 
 export default function AuctionCard({ auction, onClick }) {
-  const [timeLeft, setTimeLeft] = useState("");
+  const { timeLeft, secondsLeft, isEnded } = useCountdown(auction.endTime, {
+    mode: "compact",
+  });
   const { callX402API, isLoading, data: analysis } = useX402API();
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-
-  /**
-   * 监听拍卖结束时间，更新倒计时
-   */
-  useEffect(() => {
-    const updateTime = () => {
-      const now = Date.now();
-      const diff = auction.endTime - now;
-      if (diff <= 0) {
-        setTimeLeft("已结束");
-        return;
-      }
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      if (hours > 0) setTimeLeft(`${hours}小时 ${minutes}分钟`);
-      else if (minutes > 0) setTimeLeft(`${minutes}分钟 ${seconds}秒`);
-      else setTimeLeft(`${seconds}秒`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, [auction.endTime]);
 
   /**
    * 获取拍卖状态徽章
@@ -84,7 +64,7 @@ export default function AuctionCard({ auction, onClick }) {
   const isUrgent =
     auction.status === "active" && auction.endTime - Date.now() < 60000;
 
-  const isExpired = auction.status === "ended" || auction.endTime <= Date.now();
+  const isExpired = auction.status === "ended" || isEnded;
 
   const handleGetAnalysis = async (e) => {
     e.stopPropagation();
@@ -193,123 +173,11 @@ export default function AuctionCard({ auction, onClick }) {
         </button>
       </div>
 
-      {analysis &&
-        showAnalysisModal &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-            onClick={() => setShowAnalysisModal(false)}
-          >
-            <div
-              className="rounded-xl max-w-xl w-full"
-              style={{
-                backgroundColor: "rgba(15, 23, 42, 0.95)",
-                border: "1px solid rgba(255,255,255,0.12)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                className="flex items-center justify-between p-4"
-                style={{ borderBottom: "1px solid rgba(255,255,255,0.12)" }}
-              >
-                <div
-                  className="flex items-center gap-2"
-                  style={{ color: "#E2E8F0" }}
-                >
-                  <Sparkles className="size-5" style={{ color: "#8B5CF6" }} />
-                  <span className="font-bold">AI分析报告</span>
-                </div>
-                <button
-                  className="p-2 rounded-lg hover:bg-white/10"
-                  onClick={() => setShowAnalysisModal(false)}
-                >
-                  <X
-                    className="size-5"
-                    style={{ color: "rgba(255,255,255,0.7)" }}
-                  />
-                </button>
-              </div>
-              <div className="p-4 space-y-3">
-                <div className="flex items-start gap-2">
-                  <TrendingUp
-                    className="size-4 mt-0.5"
-                    style={{ color: "#10B981" }}
-                  />
-                  <div className="flex-1">
-                    <div style={{ color: "#10B981" }} className="font-medium">
-                      {analysis.trend === "increasing"
-                        ? "📈 上涨趋势"
-                        : "📊 平稳趋势"}
-                    </div>
-                    <div style={{ color: "#93C5FD" }} className="text-sm">
-                      建议出价：{Number(analysis.suggestedBid).toFixed(2)} MON
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div
-                    className="p-3 rounded-lg"
-                    style={{
-                      backgroundColor: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                    }}
-                  >
-                    <div style={{ color: "#93C5FD" }} className="text-xs">
-                      当前价格
-                    </div>
-                    <div style={{ color: "#E2E8F0" }} className="text-lg">
-                      {Number(analysis.currentPrice).toFixed(2)} MON
-                    </div>
-                  </div>
-                  <div
-                    className="p-3 rounded-lg"
-                    style={{
-                      backgroundColor: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                    }}
-                  >
-                    <div style={{ color: "#93C5FD" }} className="text-xs">
-                      预测价格
-                    </div>
-                    <div style={{ color: "#E2E8F0" }} className="text-lg">
-                      {Number(analysis.predictedPrice).toFixed(2)} MON
-                    </div>
-                  </div>
-                  <div
-                    className="p-3 rounded-lg"
-                    style={{
-                      backgroundColor: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                    }}
-                  >
-                    <div style={{ color: "#93C5FD" }} className="text-xs">
-                      置信度
-                    </div>
-                    <div style={{ color: "#E2E8F0" }} className="text-lg">
-                      {Math.round(Number(analysis.confidence) * 100)}%
-                    </div>
-                  </div>
-                </div>
-                <div
-                  className="mt-3 p-3 rounded-lg"
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                  }}
-                >
-                  <div style={{ color: "#93C5FD" }} className="text-xs">
-                    分析理由
-                  </div>
-                  <div style={{ color: "#E2E8F0" }} className="text-sm">
-                    {analysis.reason}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      <AnalysisModal
+        visible={showAnalysisModal}
+        analysis={analysis}
+        onClose={() => setShowAnalysisModal(false)}
+      />
     </div>
   );
 }

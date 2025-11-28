@@ -64,7 +64,8 @@ export default function App() {
       const { receipt, elapsedSec } = await create.createAuction(
         newAuction.name,
         newAuction.startingPrice,
-        Math.floor(newAuction.duration / 1000)
+        Math.floor(newAuction.duration / 1000),
+        newAuction.minBidIncrement
       );
       if (receipt?.status === "success" || receipt?.status === 1) {
         toast.success(
@@ -236,14 +237,13 @@ export default function App() {
         {/* 创建拍卖 */}
         {selectedTab === "create" && (
           <CreateAuctionForm
-            asPage
             onCreate={handleCreateAuction}
             onClose={() => setSelectedTab("auctions")}
           />
         )}
 
         {/* 我的记录 */}
-        {selectedTab === "records" && <MyRecords asPage />}
+        {selectedTab === "records" && <MyRecords />}
       </main>
 
       {/* 拍卖详情弹窗 */}

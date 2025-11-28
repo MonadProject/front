@@ -1,6 +1,7 @@
 import { formatTimeLeft } from "../utils/index";
+import { memo } from "react";
 
-export default function HomeFeaturedSection({ auctions, onSelectAuction }) {
+function HomeFeaturedSection({ auctions, onSelectAuction }) {
   return (
     <div className="py-12">
       <h2 className="text-[42px] font-semibold mb-10">Featured Auctions</h2>
@@ -259,3 +260,5 @@ export default function HomeFeaturedSection({ auctions, onSelectAuction }) {
     </div>
   );
 }
+
+export default memo(HomeFeaturedSection);

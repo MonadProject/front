@@ -16,7 +16,11 @@ createRoot(document.getElementById("root")).render(
     pollingInterval={0} //完全关闭 Wagmi 的自动轮询（block watcher）
   >
     <QueryClientProvider client={queryClient}>
-      <RainbowKitProvider chains={chains} initialChain={localhost} theme={darkTheme()} modalSize="compact">
+      <RainbowKitProvider
+        chains={chains}
+        initialChain={localhost}
+        theme={darkTheme()}
+      >
         <App />
       </RainbowKitProvider>
     </QueryClientProvider>

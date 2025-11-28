@@ -8,31 +8,7 @@ import {
 import { parseEther, formatEther } from "viem";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../config/contract";
 import { useEffect, useState, useRef } from "react";
-
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-const waitForConfirmations = async (publicClient, hash, minConf) => {
-  let receipt = null;
-  while (!receipt) {
-    try {
-      receipt = await publicClient.getTransactionReceipt({ hash });
-    } catch (_) {}
-    if (!receipt) await delay(1500);
-  }
-  if (minConf > 0 && receipt.blockNumber) {
-    let confirmed = false;
-    const start = Date.now();
-    while (!confirmed) {
-      const head = await publicClient.getBlockNumber();
-      const confs = Number(head) - Number(receipt.blockNumber);
-      if (confs >= minConf) confirmed = true;
-      else {
-        if (Date.now() - start > 60000) break;
-        await delay(1500);
-      }
-    }
-  }
-  return receipt;
-};
+import { waitForConfirmations } from "../utils";
 
 export function useGetAuction(auctionId) {
   return useReadContract({
@@ -44,6 +20,25 @@ export function useGetAuction(auctionId) {
   });
 }
 
+/**
+ * 获取用户记录
+ * @param {*} userAddress
+ * @returns
+ */
+export function useUserRecords(userAddress) {
+  return useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: "getUserRecords",
+    args: [userAddress],
+    watch: false,
+  });
+}
+
+/**
+ * 获取拍卖品的数量
+ * @returns
+ */
 export function useAuctionCount() {
   return useReadContract({
     address: CONTRACT_ADDRESS,
@@ -53,6 +48,11 @@ export function useAuctionCount() {
   });
 }
 
+/**
+ * 获取拍卖品列表
+ * @param {*} options
+ * @returns
+ */
 export function useAuctions(options = {}) {
   const { onlyActive = false, auto = false, intervalMs = 10000 } = options;
   const client = usePublicClient();
@@ -65,10 +65,73 @@ export function useAuctions(options = {}) {
   const initializedRef = useRef(false);
   const lastFullAtRef = useRef(0);
 
+  const loadIncMap = () => {
+    let m = {};
+    try {
+      const raw = localStorage.getItem("auction_min_inc_map");
+      m = raw ? JSON.parse(raw) : {};
+    } catch (_) {}
+    return m;
+  };
+
+  const mapTuple = (r, id, nowMs, incMap) => {
+    const [
+      seller,
+      startPriceWei,
+      highestBidWei,
+      highestBidder,
+      endTimeSec,
+      ended,
+      itemName,
+      claimed,
+    ] = r;
+    const currentWei = highestBidWei === 0n ? startPriceWei : highestBidWei;
+    const currentPrice = Number(formatEther(currentWei));
+    const startingPrice = Number(formatEther(startPriceWei));
+    const endMs = Number(endTimeSec) * 1000;
+    const status = ended || nowMs >= endMs ? "ended" : "active";
+    const minInc = Number(incMap[id]) > 0 ? Number(incMap[id]) : 0.001;
+    return {
+      id,
+      name: itemName,
+      description: "",
+      startingPrice,
+      currentPrice,
+      minBidIncrement: minInc,
+      endTime: endMs,
+      status,
+      isAntiSnipe: true,
+
+      seller,
+      highestBidder,
+      claimed,
+      endedFlag: ended,
+    };
+  };
+
+  const readAuctionsByIds = async (ids, incMap) => {
+    const reads = ids.map((id) =>
+      client.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "getAuction",
+        args: [BigInt(id)],
+      })
+    );
+    const results = await Promise.all(reads);
+    const nowMs = Date.now();
+    return results.map((r, idx) => mapTuple(r, ids[idx], nowMs, incMap));
+  };
+
+  /**
+   * 刷新所有拍卖品列表
+   * @returns
+   */
   const refreshAll = async () => {
     try {
       setIsLoading(true);
       setError("");
+      const incMap = loadIncMap();
       const latestCount = await client.readContract({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
@@ -82,51 +145,9 @@ export function useAuctions(options = {}) {
         setIsLoading(false);
         return;
       }
+
       const ids = Array.from({ length: count }, (_, i) => i + 1);
-      const reads = ids.map((id) =>
-        client.readContract({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: "getAuction",
-          args: [BigInt(id)],
-        })
-      );
-      const results = await Promise.all(reads);
-
-      const nowMs = Date.now();
-      const mapped = results.map((r, idx) => {
-        const [
-          seller,
-          startPriceWei,
-          highestBidWei,
-          highestBidder,
-          endTimeSec,
-          ended,
-          itemName,
-          claimed,
-        ] = r;
-        const currentWei = highestBidWei === 0n ? startPriceWei : highestBidWei;
-        const currentPrice = Number(formatEther(currentWei));
-        const startingPrice = Number(formatEther(startPriceWei));
-        const endMs = Number(endTimeSec) * 1000;
-        const status = ended || nowMs >= endMs ? "ended" : "active";
-        return {
-          id: idx + 1,
-          name: itemName,
-          description: "",
-          startingPrice,
-          currentPrice,
-          minBidIncrement: 0.00001,
-          endTime: endMs,
-          status,
-          isAntiSnipe: true,
-
-          seller,
-          highestBidder,
-          claimed,
-          endedFlag: ended,
-        };
-      });
+      const mapped = await readAuctionsByIds(ids, incMap);
       const next = mapped;
       activeIdsRef.current = mapped
         .filter((a) => a.status === "active")
@@ -142,10 +163,15 @@ export function useAuctions(options = {}) {
     }
   };
 
+  /**
+   * 刷新活动拍卖品列表
+   * @returns
+   */
   const refreshActiveOnly = async () => {
     try {
       setIsLoading(true);
       setError("");
+      const incMap = loadIncMap();
       const latestCount = await client.readContract({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
@@ -168,51 +194,7 @@ export function useAuctions(options = {}) {
         setIsLoading(false);
         return;
       }
-      const reads = idsToRead.map((id) =>
-        client.readContract({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: "getAuction",
-          args: [BigInt(id)],
-        })
-      );
-      const results = await Promise.all(reads);
-
-      const nowMs = Date.now();
-      const mapped = results.map((r, idx) => {
-        const [
-          seller,
-          startPriceWei,
-          highestBidWei,
-          highestBidder,
-          endTimeSec,
-          ended,
-          itemName,
-          claimed,
-        ] = r;
-        const id = idsToRead[idx];
-        const currentWei = highestBidWei === 0n ? startPriceWei : highestBidWei;
-        const currentPrice = Number(formatEther(currentWei));
-        const startingPrice = Number(formatEther(startPriceWei));
-        const endMs = Number(endTimeSec) * 1000;
-        const status = ended || nowMs >= endMs ? "ended" : "active";
-        return {
-          id,
-          name: itemName,
-          description: "",
-          startingPrice,
-          currentPrice,
-          minBidIncrement: 0.00001,
-          endTime: endMs,
-          status,
-          isAntiSnipe: true,
-
-          seller,
-          highestBidder,
-          claimed,
-          endedFlag: ended,
-        };
-      });
+      const mapped = await readAuctionsByIds(idsToRead, incMap);
       setAuctions((prev) => {
         const updates = new Map(mapped.map((a) => [a.id, a]));
         const merged = prev.map((p) =>
@@ -234,6 +216,10 @@ export function useAuctions(options = {}) {
     }
   };
 
+  /**
+   * 刷新拍卖品列表
+   * @returns
+   */
   const refresh = async () => {
     if (onlyActive) {
       if (!initializedRef.current) {
@@ -265,41 +251,28 @@ export function useAuctions(options = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auto, intervalMs, chainId]);
 
-  // useWatchContractEvent({
-  //   address: CONTRACT_ADDRESS,
-  //   abi: CONTRACT_ABI,
-  //   eventName: "AuctionCreated",
-  //   onLogs: () => refresh(),
-  // });
-  // useWatchContractEvent({
-  //   address: CONTRACT_ADDRESS,
-  //   abi: CONTRACT_ABI,
-  //   eventName: "BidPlaced",
-  //   onLogs: () => refresh(),
-  // });
-  // useWatchContractEvent({
-  //   address: CONTRACT_ADDRESS,
-  //   abi: CONTRACT_ABI,
-  //   eventName: "AuctionEnded",
-  //   onLogs: () => refresh(),
-  // });
-  // useWatchContractEvent({
-  //   address: CONTRACT_ADDRESS,
-  //   abi: CONTRACT_ABI,
-  //   eventName: "TimeExtended",
-  //   onLogs: () => refresh(),
-  // });
-
   return { auctions, isLoading, error, refresh };
 }
 
+/**
+ * 出价
+ * @returns
+ */
 export function usePlaceBid() {
   const { writeContractAsync, isPending } = useWriteContract();
   const publicClient = usePublicClient();
   const { address } = useAccount();
   const chainId = useChainId();
+
+  /**
+   * 出价
+   * @param {number} auctionId 拍卖品ID
+   * @param {number} bidAmount 出价金额
+   * @returns
+   */
   const placeBid = async (auctionId, bidAmount) => {
     try {
+      // 模拟出价
       await publicClient.simulateContract({
         account: address,
         address: CONTRACT_ADDRESS,
@@ -311,6 +284,8 @@ export function usePlaceBid() {
     } catch (e) {
       throw new Error(e?.shortMessage || e?.message || "出价模拟失败");
     }
+
+    // 执行出价
     const hash = await writeContractAsync({
       address: CONTRACT_ADDRESS,
       abi: CONTRACT_ABI,
@@ -327,11 +302,20 @@ export function usePlaceBid() {
   return { placeBid, isPending };
 }
 
+/**
+ * 创建拍卖品
+ * @returns
+ */
 export function useCreateAuction() {
   const { writeContractAsync, isPending } = useWriteContract();
   const publicClient = usePublicClient();
   const chainId = useChainId();
-  const createAuction = async (itemName, startPrice, duration) => {
+  const createAuction = async (
+    itemName,
+    startPrice,
+    duration,
+    minBidIncrement
+  ) => {
     const hash = await writeContractAsync({
       address: CONTRACT_ADDRESS,
       abi: CONTRACT_ABI,
@@ -341,12 +325,35 @@ export function useCreateAuction() {
     const minConf = chainId === 31337 ? 0 : 2;
     const t0 = Date.now();
     const receipt = await waitForConfirmations(publicClient, hash, minConf);
+    try {
+      const latestCount = await publicClient.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "auctionCount",
+      });
+      const idNum = Number(latestCount || 0n);
+      if (idNum > 0 && Number(minBidIncrement) > 0) {
+        let incMap = {};
+        try {
+          const raw = localStorage.getItem("auction_min_inc_map");
+          incMap = raw ? JSON.parse(raw) : {};
+        } catch (_) {}
+        incMap[idNum] = Number(minBidIncrement);
+        try {
+          localStorage.setItem("auction_min_inc_map", JSON.stringify(incMap));
+        } catch (_) {}
+      }
+    } catch (_) {}
     const elapsedSec = (Date.now() - t0) / 1000;
     return { receipt, elapsedSec };
   };
   return { createAuction, isPending };
 }
 
+/**
+ * 结束拍卖品
+ * @returns
+ */
 export function useEndAuction() {
   const { writeContractAsync, isPending } = useWriteContract();
   const publicClient = usePublicClient();
@@ -364,5 +371,3 @@ export function useEndAuction() {
   };
   return { endAuction, isPending };
 }
-
-// 方案一：移除手动提取资金逻辑，结算在 endAuction 中自动完成

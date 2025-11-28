@@ -1,8 +1,9 @@
 import { X, Clock, TrendingUp, Flame, AlertCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { useEndAuction } from "../hooks/useAuction";
 import { parseEther } from "viem";
+import { useCountdown } from "../hooks/useCountdown";
 
 export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
   const { address, isConnected } = useAccount();
@@ -14,27 +15,14 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
   const [bidAmount, setBidAmount] = useState(
     auction.currentPrice + auction.minBidIncrement
   );
-  const [timeLeft, setTimeLeft] = useState("");
+  const { timeLeft } = useCountdown(auction.endTime, { mode: "full" });
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const updateTime = () => {
-      const now = Date.now();
-      const diff = auction.endTime - now;
-      if (diff <= 0) {
-        setTimeLeft("拍卖已结束");
-        return;
-      }
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      setTimeLeft(`${hours}小时 ${minutes}分钟 ${seconds}秒`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, [auction.endTime]);
-
+  /**
+   * 出价
+   * @param {*} increment
+   * @returns
+   */
   const handleBid = async (increment) => {
     if (!isConnected) {
       setError("请先连接钱包");
@@ -76,13 +64,13 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-50 p-4"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
       onClick={onClose}
     >
       <div
         className="rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         style={{
-          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          backgroundColor: "rgba(25, 35, 60, 0.96)",
           border: "1px solid rgba(255,255,255,0.12)",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -90,7 +78,7 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
         <div
           className="sticky top-0 p-6 flex items-start justify-between"
           style={{
-            background: "rgba(10, 16, 30, 0.6)",
+            background: "rgba(12, 20, 36, 0.55)",
             backdropFilter: "blur(12px)",
             borderBottom: "1px solid rgba(255,255,255,0.12)",
             color: "#FFFFFF",
@@ -121,6 +109,7 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
               剩余时间: {timeLeft}
             </span>
           </div>
+
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div
               className="p-4 rounded-lg"
@@ -265,24 +254,24 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
                   : "即将开始"}
               </span>
             </div>
-            {auction.status === "ended" && !auction.endedFlag && (
-              <button
-                onClick={async () => {
-                  try {
-                    await endAuction(auction.id);
-                    window.dispatchEvent(new Event("tx-confirmed"));
-                    onClose();
-                  } catch (e) {
-                    setError(e?.message || "结束拍卖失败");
-                  }
-                }}
-                className="w-full mt-2 px-4 py-2 rounded-lg transition-all hover:opacity-90"
-                style={{ backgroundColor: "#F59E0B", color: "white" }}
-              >
-                结束拍卖
-              </button>
-            )}
           </div>
+          {auction.status === "ended" && !auction.endedFlag && (
+            <button
+              onClick={async () => {
+                try {
+                  await endAuction(auction.id);
+                  window.dispatchEvent(new Event("tx-confirmed"));
+                  onClose();
+                } catch (e) {
+                  setError(e?.message || "结束拍卖失败");
+                }
+              }}
+              className="w-full mt-2 px-4 py-2 rounded-lg transition-all hover:opacity-90"
+              style={{ backgroundColor: "#F59E0B", color: "white" }}
+            >
+              拍卖结束，获取结果
+            </button>
+          )}
         </div>
       </div>
     </div>

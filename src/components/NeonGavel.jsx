@@ -1,6 +1,14 @@
-export default function NeonGavel({ width = 500, height = 500, className, style }) {
+import { memo } from "react";
+
+function NeonGavel({ width = 500, height = 500, className, style }) {
   return (
-    <svg width={width} height={height} viewBox="0 0 500 500" className={className} style={style}>
+    <svg
+      width={width}
+      height={height}
+      viewBox="0 0 500 500"
+      className={className}
+      style={style}
+    >
       <style>
         {`
           .gavel { 
@@ -79,56 +87,214 @@ export default function NeonGavel({ width = 500, height = 500, className, style 
           <stop offset="100%" stopColor="#3B5FDD" />
         </linearGradient>
         <filter id="neonGlow">
-          <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+          <feGaussianBlur stdDeviation="4" result="coloredBlur" />
           <feMerge>
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
 
       {/* Background glow rings */}
-      <circle cx="250" cy="250" r="200" fill="none" stroke="url(#gavelGrad1)" strokeWidth="1" opacity="0.2" />
-      <circle cx="250" cy="250" r="220" fill="none" stroke="url(#gavelGrad1)" strokeWidth="1" opacity="0.15" />
-      <circle cx="250" cy="250" r="240" fill="none" stroke="url(#gavelGrad1)" strokeWidth="1" opacity="0.1" />
+      <circle
+        cx="250"
+        cy="250"
+        r="200"
+        fill="none"
+        stroke="url(#gavelGrad1)"
+        strokeWidth="1"
+        opacity="0.2"
+      />
+      <circle
+        cx="250"
+        cy="250"
+        r="220"
+        fill="none"
+        stroke="url(#gavelGrad1)"
+        strokeWidth="1"
+        opacity="0.15"
+      />
+      <circle
+        cx="250"
+        cy="250"
+        r="240"
+        fill="none"
+        stroke="url(#gavelGrad1)"
+        strokeWidth="1"
+        opacity="0.1"
+      />
 
       {/* Base platform glow */}
-      <ellipse cx="250" cy="410" rx="120" ry="15" fill="url(#gavelGrad1)" opacity="0.4" filter="url(#neonGlow)" />
-      
+      <ellipse
+        cx="250"
+        cy="410"
+        rx="120"
+        ry="15"
+        fill="url(#gavelGrad1)"
+        opacity="0.4"
+        filter="url(#neonGlow)"
+      />
+
       {/* Pedestal bottom */}
-      <ellipse cx="250" cy="388" rx="100" ry="12" fill="url(#gavelGrad2)" opacity="0.8" />
-      
+      <ellipse
+        cx="250"
+        cy="388"
+        rx="100"
+        ry="12"
+        fill="url(#gavelGrad2)"
+        opacity="0.8"
+      />
+
       {/* Pedestal side */}
-      <path d="M 150 390 L 160 350 L 340 350 L 350 390 Z" fill="url(#gavelGrad2)" opacity="0.6" stroke="#5B7FFF" strokeWidth="2" filter="url(#neonGlow)" />
-      
+      <path
+        d="M 150 390 L 160 350 L 340 350 L 350 390 Z"
+        fill="url(#gavelGrad2)"
+        opacity="0.6"
+        stroke="#5B7FFF"
+        strokeWidth="2"
+        filter="url(#neonGlow)"
+      />
+
       {/* Pedestal top - animated */}
-      <ellipse className="baseTop" cx="250" cy="345" rx="90" ry="11" fill="url(#gavelGrad1)" opacity="0.9" />
+      <ellipse
+        className="baseTop"
+        cx="250"
+        cy="345"
+        rx="90"
+        ry="11"
+        fill="url(#gavelGrad1)"
+        opacity="0.9"
+      />
 
       {/* Impact ring effect */}
-      <ellipse className="impactRing" cx="220" cy="340" rx="40" ry="8" fill="none" stroke="#00F2FE" strokeWidth="3" />
+      <ellipse
+        className="impactRing"
+        cx="220"
+        cy="340"
+        rx="40"
+        ry="8"
+        fill="none"
+        stroke="#00F2FE"
+        strokeWidth="3"
+      />
 
       {/* Gavel group */}
       <g className="gavel">
         {/* Handle */}
-        <rect x="300" y="200" width="240" height="36" rx="18" fill="url(#gavelGrad2)" stroke="#00F2FE" strokeWidth="3" filter="url(#neonGlow)" />
-        
+        <rect
+          x="300"
+          y="200"
+          width="240"
+          height="36"
+          rx="18"
+          fill="url(#gavelGrad2)"
+          stroke="#00F2FE"
+          strokeWidth="3"
+          filter="url(#neonGlow)"
+        />
+
         {/* Handle grip lines */}
-        <rect x="360" y="202" width="6" height="32" rx="3" fill="#00F2FE" opacity="0.6" />
-        <rect x="380" y="202" width="6" height="32" rx="3" fill="#00F2FE" opacity="0.6" />
-        <rect x="400" y="202" width="6" height="32" rx="3" fill="#00F2FE" opacity="0.6" />
-        <rect x="420" y="202" width="6" height="32" rx="3" fill="#00F2FE" opacity="0.6" />
-        <rect x="440" y="202" width="6" height="32" rx="3" fill="#00F2FE" opacity="0.6" />
-        <rect x="460" y="202" width="6" height="32" rx="3" fill="#00F2FE" opacity="0.6" />
-        <rect x="480" y="202" width="6" height="32" rx="3" fill="#00F2FE" opacity="0.6" />
-        <rect x="500" y="202" width="6" height="32" rx="3" fill="#00F2FE" opacity="0.6" />
-        
+        <rect
+          x="360"
+          y="202"
+          width="6"
+          height="32"
+          rx="3"
+          fill="#00F2FE"
+          opacity="0.6"
+        />
+        <rect
+          x="380"
+          y="202"
+          width="6"
+          height="32"
+          rx="3"
+          fill="#00F2FE"
+          opacity="0.6"
+        />
+        <rect
+          x="400"
+          y="202"
+          width="6"
+          height="32"
+          rx="3"
+          fill="#00F2FE"
+          opacity="0.6"
+        />
+        <rect
+          x="420"
+          y="202"
+          width="6"
+          height="32"
+          rx="3"
+          fill="#00F2FE"
+          opacity="0.6"
+        />
+        <rect
+          x="440"
+          y="202"
+          width="6"
+          height="32"
+          rx="3"
+          fill="#00F2FE"
+          opacity="0.6"
+        />
+        <rect
+          x="460"
+          y="202"
+          width="6"
+          height="32"
+          rx="3"
+          fill="#00F2FE"
+          opacity="0.6"
+        />
+        <rect
+          x="480"
+          y="202"
+          width="6"
+          height="32"
+          rx="3"
+          fill="#00F2FE"
+          opacity="0.6"
+        />
+        <rect
+          x="500"
+          y="202"
+          width="6"
+          height="32"
+          rx="3"
+          fill="#00F2FE"
+          opacity="0.6"
+        />
+
         {/* Connection joint */}
-        <circle cx="300" cy="210" r="24" fill="url(#gavelGrad2)" stroke="#00F2FE" strokeWidth="3" filter="url(#neonGlow)" />
+        <circle
+          cx="300"
+          cy="210"
+          r="24"
+          fill="url(#gavelGrad2)"
+          stroke="#00F2FE"
+          strokeWidth="3"
+          filter="url(#neonGlow)"
+        />
         <circle cx="300" cy="210" r="14" fill="rgba(255,255,255,0.2)" />
-        
+
         {/* Gavel head */}
-        <rect x="220" y="160" width="160" height="100" rx="18" fill="url(#gavelGrad1)" stroke="#00F2FE" strokeWidth="4" filter="url(#neonGlow)" transform="rotate(90 300 210)" />
+        <rect
+          x="220"
+          y="160"
+          width="160"
+          height="100"
+          rx="18"
+          fill="url(#gavelGrad1)"
+          stroke="#00F2FE"
+          strokeWidth="4"
+          filter="url(#neonGlow)"
+          transform="rotate(90 300 210)"
+        />
       </g>
     </svg>
-  )
+  );
 }
+
+export default memo(NeonGavel);
