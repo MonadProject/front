@@ -10,6 +10,9 @@ export default function Navbar({ selectedTab, onSelectTab, isDark = false }) {
     enabled: !!address,
   });
 
+  /**
+   * 监听交易确认事件，刷新余额
+   */
   useEffect(() => {
     if (!address) return;
     const handler = () => refetch?.();
