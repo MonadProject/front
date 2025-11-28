@@ -252,10 +252,7 @@ export default function AuctionDetailModal({ auction, onClose, onPlaceBid }) {
               <span>拍卖ID:</span>
               <span className="font-mono">{auction.id}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span>出价次数:</span>
-              <span>{auction.bids} 次</span>
-            </div>
+
             <div className="flex items-center justify-between">
               <span>状态:</span>
               <span

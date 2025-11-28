@@ -127,15 +127,7 @@ export default function AuctionCard({ auction, onClick }) {
             className="text-[24px] font-semibold"
             style={{ color: "#5B7FFF" }}
           >
-            {auction.currentPrice} MON
-          </div>
-        </div>
-        <div className="text-right">
-          <div
-            className="text-[12px] mb-1"
-            style={{ color: "rgba(255,255,255,0.6)" }}
-          >
-            {auction.bids} 次出价
+            {auction.currentPrice.toFixed(6)} MON
           </div>
         </div>
       </div>

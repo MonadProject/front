@@ -15,13 +15,18 @@ import deployedConfig from "./config/deployed.json";
 import ParticleBackground from "./components/ParticleBackground";
 
 export default function App() {
-  const { auctions, error, refresh } = useAuctions();
+  const [selectedTab, setSelectedTab] = useState("home");
+  const { auctions, error, refresh } = useAuctions({
+    onlyActive: selectedTab === "auctions",
+    auto: selectedTab === "auctions",
+    intervalMs: 3000,
+  });
   const chainId = useChainId();
   const isMismatch =
     chainId && deployedConfig.chainId && chainId !== deployedConfig.chainId;
   const [selectedAuction, setSelectedAuction] = useState(null);
-  const [selectedTab, setSelectedTab] = useState("home");
   const [filter, setFilter] = useState("all");
+  const [visibleCount, setVisibleCount] = useState(6);
   const bid = usePlaceBid();
   const create = useCreateAuction();
 
@@ -33,9 +38,11 @@ export default function App() {
   const handlePlaceBid = async (auctionId, amount) => {
     try {
       toast.info("交易已提交，等待确认...");
-      const receipt = await bid.placeBid(auctionId, amount);
+      const { receipt, elapsedSec } = await bid.placeBid(auctionId, amount);
       if (receipt?.status === "success" || receipt?.status === 1) {
-        toast.success("出价成功！");
+        toast.success(
+          `出价成功，链上确认耗时 ${elapsedSec.toFixed(2)} 秒 (Monad)`
+        );
         window.dispatchEvent(new Event("tx-confirmed"));
       } else {
         toast.warning("交易已上链但状态异常");
@@ -54,13 +61,15 @@ export default function App() {
   const handleCreateAuction = async (newAuction) => {
     try {
       toast.info("交易已提交，等待确认...");
-      const receipt = await create.createAuction(
+      const { receipt, elapsedSec } = await create.createAuction(
         newAuction.name,
         newAuction.startingPrice,
         Math.floor(newAuction.duration / 1000)
       );
       if (receipt?.status === "success" || receipt?.status === 1) {
-        toast.success("拍卖创建成功！");
+        toast.success(
+          `拍卖创建成功，链上确认耗时 ${elapsedSec.toFixed(2)} 秒 (Monad)`
+        );
         window.dispatchEvent(new Event("tx-confirmed"));
       } else {
         toast.warning("交易已上链但状态异常");
@@ -78,6 +87,13 @@ export default function App() {
   const filteredAuctions = auctions.filter((a) =>
     filter === "all" ? true : a.status === filter
   );
+  const sortedFilteredAuctions = filteredAuctions
+    .slice()
+    .sort((a, b) => b.id - a.id);
+
+  useEffect(() => {
+    setVisibleCount(6);
+  }, [filter, selectedTab]);
 
   /**
    * 监听交易确认事件，刷新拍卖列表
@@ -164,16 +180,35 @@ export default function App() {
                 </button>
               ))}
             </div>
-            {filteredAuctions.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredAuctions.map((auction) => (
-                  <AuctionCard
-                    key={auction.id}
-                    auction={auction}
-                    onClick={() => setSelectedAuction(auction)}
-                  />
-                ))}
-              </div>
+            {sortedFilteredAuctions.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {sortedFilteredAuctions
+                    .slice(0, visibleCount)
+                    .map((auction) => (
+                      <AuctionCard
+                        key={auction.id}
+                        auction={auction}
+                        onClick={() => setSelectedAuction(auction)}
+                      />
+                    ))}
+                </div>
+                {sortedFilteredAuctions.length > visibleCount && (
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={() => setVisibleCount((c) => c + 6)}
+                      className="px-6 py-2 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: "rgba(255,255,255,0.06)",
+                        color: "#93C5FD",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                      }}
+                    >
+                      加载更多
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               <div
                 className="flex flex-col items-center justify-center py-20"
