@@ -40,7 +40,7 @@ export const localhost = {
   testnet: true,
 };
 
-export const chains = [localhost, monadTestnet];
+export const chains = [monadTestnet, localhost];
 
 export const config = getDefaultConfig({
   appName: "Monad Auction",

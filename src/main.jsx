@@ -6,7 +6,7 @@ import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./index.css";
 import App from "./App";
-import { config, chains, localhost } from "./config/wagmi";
+import { config, chains, monadTestnet } from "./config/wagmi";
 
 const queryClient = new QueryClient();
 
@@ -18,7 +18,7 @@ createRoot(document.getElementById("root")).render(
     <QueryClientProvider client={queryClient}>
       <RainbowKitProvider
         chains={chains}
-        initialChain={localhost}
+        initialChain={monadTestnet}
         theme={darkTheme()}
       >
         <App />
