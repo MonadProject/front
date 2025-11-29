@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, AlertCircle } from "lucide-react";
+import { Plus, AlertCircle, Loader2 } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
   });
 
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   /**
    * 验证表单
@@ -45,13 +46,19 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
    * @param {*} e
    * @returns
    */
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isConnected) {
       toast("请先连接钱包");
       return;
     }
-    if (validate()) onCreate(formData);
+    if (!validate()) return;
+    try {
+      setIsSubmitting(true);
+      await Promise.resolve(onCreate?.(formData));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   /**
@@ -324,10 +331,17 @@ export default function CreateAuctionForm({ onClose, onCreate }) {
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg transition-all hover:opacity-90"
-            style={{ backgroundColor: "#5B7FFF", color: "white" }}
+            disabled={isSubmitting}
+            className="px-4 py-2 rounded-lg transition-all hover:opacity-90 flex items-center gap-2"
+            style={{
+              backgroundColor: "#5B7FFF",
+              color: "white",
+              opacity: isSubmitting ? 0.8 : 1,
+              cursor: isSubmitting ? "not-allowed" : "pointer",
+            }}
           >
-            创建
+            {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+            {isSubmitting ? "创建中..." : "创建"}
           </button>
         </div>
         {!isConnected && (
