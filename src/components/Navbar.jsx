@@ -20,6 +20,15 @@ export default function Navbar({ selectedTab, onSelectTab, isDark = false }) {
     return () => window.removeEventListener("tx-confirmed", handler);
   }, [address, refetch]);
 
+  // 定时轮询余额，周期 3000 毫秒
+  useEffect(() => {
+    if (!address) return;
+    const iv = setInterval(() => {
+      refetch?.();
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [address, refetch]);
+
   return (
     <nav
       className="fixed top-0 left-0 right-0 z-50"
